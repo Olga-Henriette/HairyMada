@@ -1,0 +1,50 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Redirection vers index.php 
+    # Si le fichier ou le répertoire demandé n'existe pas
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    # Alors réécrire la requête vers index.php
+    RewriteRule ^(.*)$ index.php [QSA,L]
+</IfModule>
+
+# Sécurité 
+# Empêche le navigateur de deviner les types MIME et de charger du contenu potentiellement malveillant.
+Header always set X-Content-Type-Options "nosniff"
+# Empêche l'intégration de la page dans des iframes, protégeant contre le clickjacking.
+Header always set X-Frame-Options "DENY"
+# Active la protection XSS (Cross-Site Scripting) dans les navigateurs modernes.
+Header always set X-XSS-Protection "1; mode=block"
+# Définit une politique de sécurité de contenu pour prévenir les attaques XSS et l'injection de code.
+# A configurer plus précisément selon les sources de votre contenu (images, scripts, styles).
+# Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
+
+# Cache statique 
+# Nécessite mod_expires
+<IfModule mod_expires.c>
+    ExpiresActive On
+    # Fichiers statiques (images, CSS, JS) peuvent être mis en cache plus longtemps
+    ExpiresByType image/jpg "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/pdf "access plus 1 month"
+    ExpiresByType text/javascript "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+</IfModule>
+
+# Compression 
+# Nécessite mod_deflate
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+</IfModule>
