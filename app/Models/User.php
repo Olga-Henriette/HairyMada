@@ -62,7 +62,7 @@ class User extends BaseModel
     {
         try {
             // Validation des données requises
-            $required = ['email', 'phone', 'password', 'first_name', 'last_name', 'address', 'quartier'];
+            $required = ['email', 'phone', 'password', 'last_name', 'address', 'quartier'];
             foreach ($required as $field) {
                 if (empty($userData[$field])) {
                     throw new Exception("Le champ '$field' est requis");
@@ -98,7 +98,7 @@ class User extends BaseModel
             
         } catch (Exception $e) {
             error_log("Erreur User::create: " . $e->getMessage());
-            return null;
+            throw $e; // Re-lance l'exception pour que le contrôleur puisse la traiter
         }
     }
 
@@ -137,16 +137,25 @@ class User extends BaseModel
         $user = static::findByEmail($login) ?? static::findByPhone($login);
         
         if (!$user) {
+            log_error("Tentative de connexion échouée: Utilisateur non trouvé pour '$login'");
             return null;
         }
         
         // Vérifier le mot de passe
         if (!password_verify($password, $user->password_hash)) {
+            log_error("Tentative de connexion échouée: Mot de passe incorrect pour l'utilisateur ID {$user->id} ({$user->email})");
             return null;
         }
         
         // Vérifier que le compte est actif
-        if (!$user->is_active || $user->is_blocked) {
+        if (!$user->is_active) { 
+            log_error("Tentative de connexion échouée: Compte inactif pour l'utilisateur ID {$user->id} ({$user->email})");
+            return null;
+        }
+
+        // Vérifier que le compte n'est PAS bloqué
+        if ($user->is_blocked) { 
+            log_error("Tentative de connexion échouée: Compte bloqué pour l'utilisateur ID {$user->id} ({$user->email}) - Raison: {$user->blocked_reason}");
             return null;
         }
         

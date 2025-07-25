@@ -15,9 +15,14 @@ namespace App\Controllers;
 abstract class BaseController
 {
 
+    // pour passer l'ancienne entrée à la vue
     protected function render(string $viewPath, array $data = []): void
     {
-        extract($data);
+        // Récupère les anciennes entrées en utilisant le helper global
+        $oldInput = get_old_input(); // Utilisation du helper
+        $data['old_input'] = $oldInput; // Passe old_input à la vue
+
+        extract($data); // Extrait maintenant $data et $old_input
 
         $paths = require ROOT_PATH . '/config/paths.php';
         $viewFile = $paths['views'] . '/' . str_replace('.', '/', $viewPath) . '.php';
@@ -29,50 +34,64 @@ abstract class BaseController
             throw new \Exception("La vue '{$viewPath}' est introuvable.");
         }
 
-        require $viewFile;
+    // Démarrer la mise en tampon de la sortie
+        ob_start();
+        require $viewFile; // Inclut la vue spécifique (login.php, register.php)
+        $content = ob_get_clean(); // Récupère le contenu de la vue
+
+        $layoutPath = $paths['views'] . '/layouts/';
+        if (str_starts_with($viewPath, 'auth.')) {
+            $layoutPath .= 'auth.php';
+            // Le titre est déjà défini dans les contrôleurs qui appellent render,
+            // ou il peut être passé via $data['title'].
+            // Si non défini, il utilisera le défaut de auth.php
+        } elseif (str_starts_with($viewPath, 'client.')) {
+            $layoutPath .= 'app.php'; 
+        } else {
+            $layoutPath .= 'app.php'; 
+        }
+
+        // Le titre pour le layout est déjà passé via $data['title'] et extrait
+        // Si $title n'est pas défini, il prendra la valeur par défaut du layout
+
+        // Inclure le layout, qui aura accès à $content et $title
+        if (!file_exists($layoutPath)) {
+             if (function_exists('log_error')) {
+                 log_error("Layout introuvable: " . $layoutPath);
+             }
+            throw new \Exception("Le layout '{$layoutPath}' est introuvable.");
+        }
+        require $layoutPath;
     }
 
 
     protected function redirect(string $url, int $statusCode = 302): void
     {
-        if (function_exists('redirect')) {
-            redirect($url, $statusCode);
-        } else {
-            header("Location: " . $url, true, $statusCode);
-            exit();
-        }
+        redirect($url, $statusCode);
     }
 
     
-    protected function redirectWithMessage(string $url, string $message, string $type = 'info'): void
+    protected function redirectWithMessage(string $url, string $message, string $type = 'info', array $oldInput = []): void
     {
-        if (function_exists('redirect_with_message')) {
-            redirect_with_message($url, $message, $type);
-        } else {
-            if (!isset($_SESSION)) {
-                session_start(); 
-            }
-            $_SESSION['flash_message'] = ['message' => $message, 'type' => $type];
-            $this->redirect($url);
+        // Délégué la gestion du message flash au helper
+        set_flash_message($message, $type); // Utilisation du helper
+        
+        if (!empty($oldInput)) {
+            // Délégué la gestion de l'ancien input au helper
+            set_old_input($oldInput); // Utilisation du helper
         }
+        $this->redirect($url);
     }
 
-    
+    // une méthode pour récupérer l'ancienne entrée
+    protected function getOldInput(): array
+    {
+        return get_old_input(); 
+    }
+
     protected function getFlashMessage(): ?array
     {
-        if (function_exists('get_flash_message')) {
-            return get_flash_message();
-        } else {
-            if (!isset($_SESSION)) {
-                session_start(); 
-            }
-            if (isset($_SESSION['flash_message'])) {
-                $message = $_SESSION['flash_message'];
-                unset($_SESSION['flash_message']);
-                return $message;
-            }
-            return null;
-        }
+        return get_flash_message(); 
     }
 
 
@@ -87,7 +106,7 @@ abstract class BaseController
         return $_GET;
     }
 
-  
+    
     protected function input(string $key, $default = null)
     {
         return $_REQUEST[$key] ?? $default;

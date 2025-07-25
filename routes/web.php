@@ -1,6 +1,10 @@
 <?php
 
-use App\Core\Router; // Importer la classe Router
+use App\Core\Router; 
+use App\Controllers\AuthClientController;
+use App\Controllers\UserController;
+use App\Controllers\HomeController;
+
 
 /**
  * Fichier de définition des routes web pour l'application HairyMada.
@@ -21,11 +25,8 @@ if (!isset($router) || !$router instanceof Router) {
 /**
  * Routes d'accueil et statiques
  */
-$router->get('/', function() {
-    // Ceci est un exemple de route avec une fonction anonyme
-    echo "<h1>Bienvenue sur HairyMada !</h1>";
-    echo "<p>Page d'accueil.</p>";
-});
+
+$router->get('/', 'HomeController@index');
 
 $router->get('/about', function() {
     echo "<h1>À propos de nous</h1>";
@@ -33,7 +34,7 @@ $router->get('/about', function() {
 });
 
 /**
- * Routes d'authentification (exemples, les contrôleurs réels seront créés plus tard)
+ * Routes d'authentification (les contrôleurs réels seront créés plus tard)
  */
 $router->get('/register', 'AuthClientController@showRegistrationForm');
 $router->post('/register', 'AuthClientController@register');
@@ -41,7 +42,7 @@ $router->post('/register', 'AuthClientController@register');
 $router->get('/login', 'AuthClientController@showLoginForm');
 $router->post('/login', 'AuthClientController@login');
 
-// Exemple de route pour le profil utilisateur (nécessitera une authentification)
+// route pour le profil utilisateur (nécessitera une authentification)
 $router->get('/profile', 'UserController@showProfile');
 
 

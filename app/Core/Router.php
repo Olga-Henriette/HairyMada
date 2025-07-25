@@ -50,7 +50,7 @@ class Router
 
                 if (is_string($action) && str_contains($action, '@')) {
                     list($controllerName, $methodName) = explode('@', $action);
-                    $controllerClass = "App\\Controllers\\" . $controllerName; 
+                    $controllerClass = "App\\Controllers\\" . $controllerName;
 
                     if (!class_exists($controllerClass)) {
                         $errorMessage = "Contrôleur introuvable: " . $controllerClass;

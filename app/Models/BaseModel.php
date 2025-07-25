@@ -19,19 +19,13 @@ use Exception;
  */
 abstract class BaseModel
 {
-    /**
-     * Instance de la base de données
-     */
+  
     protected Database $db;
 
     /**
      * Nom de la table (à définir dans chaque modèle enfant)
      */
     protected string $table;
-
-    /**
-     * Clé primaire de la table
-     */
     protected string $primaryKey = 'id';
 
     /**
@@ -60,12 +54,24 @@ abstract class BaseModel
     protected array $dirty = [];
 
     /**
+     * Indique si le modèle existe déjà en base de données.
+     */
+    protected bool $existsInDatabase = false;
+
+    /**
      * Constructeur
      */
     public function __construct(array $attributes = [])
     {
         $this->db = Database::getInstance();
         $this->fill($attributes);
+
+        // Si l'ID est présent dans les attributs, cela signifie que l'instance est chargée depuis la BDD.
+        // Alors, marque-la comme existante et réinitialise les attributs "sales".
+        if (!empty($attributes[$this->primaryKey])) {
+            $this->existsInDatabase = true;
+            $this->dirty = []; // Réinitialise les attributs "sales" après l'hydratation
+        }
     }
 
     /**
@@ -77,11 +83,21 @@ abstract class BaseModel
     public function fill(array $attributes): self
     {
         foreach ($attributes as $key => $value) {
-            if ($this->isFillable($key)) {
-                $this->setAttribute($key, $value);
+            // Ne pas marquer comme dirty si c'est la première fois qu'on remplit (lors de la construction)
+            // L'attribut 'id' peut être rempli mais ne doit pas rendre l'objet "sale".
+            if ($this->isFillable($key) || $key === $this->primaryKey) { 
+                $this->attributes[$key] = $value;
+                // Ne marquer comme dirty que si la valeur change ET que l'objet existe déjà et que ce n'est pas la construction initiale.
+                // OU si l'objet n'existe pas encore (nouvelle instance) et que la valeur est définie.
+                if ($this->existsInDatabase && $this->getAttribute($key) !== $value) {
+                    $this->dirty[$key] = true;
+                } elseif (!$this->existsInDatabase && isset($this->attributes[$key])) {
+                     // Pour les nouvelles instances, tous les attributs "fillables" sont initialement sales.
+                     // Le "dirty" sera réinitialisé après le premier save().
+                     $this->dirty[$key] = true;
+                }
             }
         }
-        
         return $this;
     }
 
@@ -110,8 +126,11 @@ abstract class BaseModel
      */
     public function setAttribute(string $key, $value): void
     {
-        $this->attributes[$key] = $value;
-        $this->dirty[$key] = true;
+        // Ne marquer comme dirty que si la valeur change
+        if (!array_key_exists($key, $this->attributes) || $this->attributes[$key] !== $value) {
+            $this->attributes[$key] = $value;
+            $this->dirty[$key] = true;
+        }
     }
 
     /**
@@ -150,7 +169,7 @@ abstract class BaseModel
      */
     public static function find($id): ?self
     {
-        $instance = new static();
+        $instance = new static(); // Crée une instance temporaire pour accéder à $table
         
         try {
             $result = $instance->db->query(
@@ -158,10 +177,13 @@ abstract class BaseModel
                 [$id]
             );
             
-            $data = $result->fetch();
+            $data = $result->fetch(PDO::FETCH_ASSOC); // Utiliser FETCH_ASSOC pour s'assurer que les clés sont des noms de colonnes
             
             if ($data) {
-                return new static($data);
+                $foundInstance = new static($data);
+                $foundInstance->existsInDatabase = true; // Marquer explicitement comme existant
+                $foundInstance->dirty = []; // Réinitialiser dirty après le chargement initial
+                return $foundInstance;
             }
             
             return null;
@@ -216,10 +238,13 @@ abstract class BaseModel
                 $params
             );
             
-            $data = $result->fetch();
+            $data = $result->fetch(PDO::FETCH_ASSOC); 
             
             if ($data) {
-                return new static($data);
+                $foundInstance = new static($data);
+                $foundInstance->existsInDatabase = true; 
+                $foundInstance->dirty = []; 
+                return $foundInstance;
             }
             
             return null;
@@ -318,7 +343,7 @@ abstract class BaseModel
     public function save(): bool
     {
         try {
-            if ($this->exists()) {
+            if ($this->existsInDatabase) { 
                 return $this->update();
             } else {
                 return $this->insert();
@@ -337,22 +362,27 @@ abstract class BaseModel
     protected function insert(): bool
     {
         if ($this->timestamps) {
-            $this->setAttribute('created_at', date('Y-m-d H:i:s'));
-            $this->setAttribute('updated_at', date('Y-m-d H:i:s'));
+            $now = date('Y-m-d H:i:s');
+            $this->setAttribute('created_at', $now);
+            $this->setAttribute('updated_at', $now);
         }
         
         $columns = array_keys($this->attributes);
         $placeholders = array_fill(0, count($columns), '?');
-        
+        $params = array_values($this->attributes); 
+
         $sql = "INSERT INTO {$this->table} (" . implode(', ', $columns) . ")
                 VALUES (" . implode(', ', $placeholders) . ")";
         
         try {
-            $this->db->query($sql, array_values($this->attributes));
+            $this->db->query($sql, $params); 
             
             // Récupérer l'ID généré
             $lastId = $this->db->getLastInsertId();
             $this->setAttribute($this->primaryKey, $lastId);
+            
+            // Marquer comme existant après une insertion réussie
+            $this->existsInDatabase = true; 
             
             // Marquer comme propre
             $this->dirty = [];
@@ -364,6 +394,7 @@ abstract class BaseModel
             return false;
         }
     }
+
 
     /**
      * Mettre à jour l'enregistrement
@@ -403,7 +434,6 @@ abstract class BaseModel
         try {
             $this->db->query($sql, $params);
             
-            // Marquer comme propre
             $this->dirty = [];
             
             return true;

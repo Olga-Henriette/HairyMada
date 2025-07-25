@@ -1,10 +1,10 @@
 <?php
 /**
  * Fichier d'aide principal pour HairyMada
- * 
+ *
  * Ce fichier contient toutes les fonctions utilitaires
  * utilisées dans l'application
- * 
+ *
  * @package HairyMada
  * @author Olga Henriette VOLANIAINA
  * @version 1.0
@@ -18,7 +18,7 @@
 
 /**
  * Nettoyer et sécuriser une chaîne de caractères
- * 
+ *
  * @param string $string Chaîne à nettoyer
  * @return string Chaîne nettoyée
  */
@@ -29,7 +29,7 @@ function sanitize_string(string $string): string
 
 /**
  * Valider une adresse email
- * 
+ *
  * @param string $email Email à valider
  * @return bool True si valide
  */
@@ -40,7 +40,7 @@ function is_valid_email(string $email): bool
 
 /**
  * Valider un numéro de téléphone malgache
- * 
+ *
  * @param string $phone Numéro à valider
  * @return bool True si valide
  */
@@ -53,7 +53,7 @@ function is_valid_madagascar_phone(string $phone): bool
 
 /**
  * Générer un token sécurisé
- * 
+ *
  * @param int $length Longueur du token
  * @return string Token généré
  */
@@ -64,7 +64,7 @@ function generate_secure_token(int $length = 32): string
 
 /**
  * Hasher un mot de passe
- * 
+ *
  * @param string $password Mot de passe à hasher
  * @return string Hash du mot de passe
  */
@@ -75,7 +75,7 @@ function hash_password(string $password): string
 
 /**
  * Vérifier un mot de passe
- * 
+ *
  * @param string $password Mot de passe en clair
  * @param string $hash Hash à vérifier
  * @return bool True si correct
@@ -87,11 +87,15 @@ function verify_password(string $password, string $hash): bool
 
 /**
  * Générer un token CSRF
- * 
+ *
  * @return string Token CSRF
  */
 function generate_csrf_token(): string
 {
+    // S'assurer que la session est démarrée avant de l'utiliser
+    if (session_status() == PHP_SESSION_NONE) {
+        session_start();
+    }
     if (!isset($_SESSION['csrf_token'])) {
         $_SESSION['csrf_token'] = generate_secure_token(32);
     }
@@ -100,12 +104,15 @@ function generate_csrf_token(): string
 
 /**
  * Vérifier un token CSRF
- * 
+ *
  * @param string $token Token à vérifier
  * @return bool True si valide
  */
 function verify_csrf_token(string $token): bool
 {
+    if (session_status() == PHP_SESSION_NONE) {
+        session_start();
+    }
     return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
 }
 
@@ -117,7 +124,7 @@ function verify_csrf_token(string $token): bool
 
 /**
  * Valider les données d'inscription
- * 
+ *
  * @param array $data Données à valider
  * @return array Erreurs trouvées
  */
@@ -192,7 +199,7 @@ function validate_registration_data(array $data): array
 
 /**
  * Valider un fichier uploadé
- * 
+ *
  * @param array $file Fichier $_FILES
  * @param array $allowed_types Types autorisés
  * @param int $max_size Taille maximale en octets
@@ -226,7 +233,7 @@ function validate_upload_file(array $file, array $allowed_types = [], int $max_s
 
 /**
  * Générer un nom de fichier sécurisé
- * 
+ *
  * @param string $original_name Nom original
  * @param string $prefix Préfixe optionnel
  * @return string Nom sécurisé
@@ -248,7 +255,7 @@ function generate_secure_filename(string $original_name, string $prefix = ''): s
 
 /**
  * Formater les octets en format lisible
- * 
+ *
  * @param int $bytes Nombre d'octets
  * @param int $precision Précision décimale
  * @return string Taille formatée
@@ -266,7 +273,7 @@ function formatBytes(int $bytes, int $precision = 2): string
 
 /**
  * Formater une date en français
- * 
+ *
  * @param string $date Date à formater
  * @param string $format Format de sortie
  * @return string Date formatée
@@ -279,7 +286,7 @@ function format_date_french(string $date, string $format = 'd/m/Y à H:i'): stri
 
 /**
  * Calculer le temps écoulé depuis une date
- * 
+ *
  * @param string $date Date de référence
  * @return string Temps écoulé
  */
@@ -306,7 +313,7 @@ function time_ago(string $date): string
 
 /**
  * Tronquer un texte
- * 
+ *
  * @param string $text Texte à tronquer
  * @param int $length Longueur maximale
  * @param string $suffix Suffixe à ajouter
@@ -329,7 +336,7 @@ function truncate_text(string $text, int $length = 100, string $suffix = '...'):
 
 /**
  * Générer un ID unique pour un prestataire
- * 
+ *
  * @param int $quartier_id ID du quartier
  * @return string ID unique
  */
@@ -344,7 +351,7 @@ function generate_provider_id(int $quartier_id): string
 
 /**
  * Générer un code pour un chef de quartier
- * 
+ *
  * @param string $quartier_name Nom du quartier
  * @return string Code unique
  */
@@ -359,7 +366,7 @@ function generate_chef_code(string $quartier_name): string
 
 /**
  * Obtenir les catégories de services disponibles
- * 
+ *
  * @return array Catégories de services
  */
 function get_service_categories(): array
@@ -384,7 +391,7 @@ function get_service_categories(): array
 
 /**
  * Obtenir les régions de Madagascar
- * 
+ *
  * @return array Régions
  */
 function get_madagascar_regions(): array
@@ -423,45 +430,95 @@ function get_madagascar_regions(): array
 
 /**
  * Rediriger vers une URL
- * 
+ *
  * @param string $url URL de destination
  * @param int $status_code Code de statut HTTP
  */
 function redirect(string $url, int $status_code = 302): void
 {
+    //Sauvegarder la session avant la redirection
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
+
     header("Location: $url", true, $status_code);
     exit();
 }
 
 /**
+ * Définit un message flash dans la session.
+ *
+ * @param string $message Message à afficher.
+ * @param string $type Type de message (success, error, warning, info).
+ */
+function set_flash_message(string $message, string $type = 'info'): void
+{
+    // S'assurer que la session est démarrée avant de l'utiliser
+    if (session_status() == PHP_SESSION_NONE) {
+        session_start();
+    }
+    $_SESSION['flash_message'] = ['message' => $message, 'type' => $type];
+}
+
+
+/**
  * Rediriger avec un message flash
- * 
+ *
  * @param string $url URL de destination
  * @param string $message Message à afficher
  * @param string $type Type de message (success, error, warning, info)
  */
 function redirect_with_message(string $url, string $message, string $type = 'info'): void
 {
-    $_SESSION['flash_message'] = [
-        'message' => $message,
-        'type' => $type
-    ];
+    set_flash_message($message, $type); // Utilise la nouvelle fonction set_flash_message
     redirect($url);
 }
 
 /**
  * Obtenir et supprimer un message flash
- * 
+ *
  * @return array|null Message flash
  */
 function get_flash_message(): ?array
 {
+    if (session_status() == PHP_SESSION_NONE) {
+        session_start();
+    }
     if (isset($_SESSION['flash_message'])) {
         $message = $_SESSION['flash_message'];
         unset($_SESSION['flash_message']);
         return $message;
     }
     return null;
+}
+
+/**
+ * Stocke les anciennes données de saisie dans la session.
+ * Utile pour pré-remplir les formulaires après une redirection due à une erreur.
+ *
+ * @param array $input Les données de saisie à stocker.
+ */
+function set_old_input(array $input): void
+{
+    if (session_status() == PHP_SESSION_NONE) {
+        session_start();
+    }
+    $_SESSION['old_input'] = $input;
+}
+
+/**
+ * Récupère les anciennes données de saisie de la session et les supprime.
+ *
+ * @return array Les anciennes données de saisie.
+ */
+function get_old_input(): array
+{
+    if (session_status() == PHP_SESSION_NONE) {
+        session_start();
+    }
+    $oldInput = $_SESSION['old_input'] ?? [];
+    unset($_SESSION['old_input']);
+    return $oldInput;
 }
 
 /**
@@ -472,7 +529,7 @@ function get_flash_message(): ?array
 
 /**
  * Fonction de debug améliorée
- * 
+ *
  * @param mixed $data Données à afficher
  * @param bool $die Arrêter l'exécution
  */
@@ -489,7 +546,7 @@ function dd($data, bool $die = true): void
 
 /**
  * Logger une erreur
- * 
+ *
  * @param string $message Message d'erreur
  * @param array $context Contexte supplémentaire
  */
@@ -514,7 +571,7 @@ function log_error(string $message, array $context = []): void
 
 /**
  * Obtenir l'URL de base de l'application
- * 
+ *
  * @return string URL de base
  */
 function base_url(): string
@@ -524,7 +581,7 @@ function base_url(): string
 
 /**
  * Obtenir l'URL d'un asset
- * 
+ *
  * @param string $path Chemin vers l'asset
  * @return string URL complète
  */
@@ -535,7 +592,7 @@ function asset_url(string $path): string
 
 /**
  * Obtenir l'URL d'un upload
- * 
+ *
  * @param string $path Chemin vers le fichier
  * @return string URL complète
  */
